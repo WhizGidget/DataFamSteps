@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DataFam on the Move</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: #0d0d1a;
+    color: #fff;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 10% 20%, rgba(255,99,88,0.18) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 50% at 85% 10%, rgba(0,210,190,0.14) 0%, transparent 70%),
+      radial-gradient(ellipse 55% 45% at 60% 85%, rgba(255,195,0,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .page { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 32px 24px 48px; }
+
+  .header { text-align: center; margin-bottom: 40px; }
+  .badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #ff6358, #ff9f43);
+    color: #fff;
+    font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+    padding: 5px 14px; border-radius: 20px; margin-bottom: 14px;
+  }
+  h1 {
+    font-size: clamp(2rem, 5vw, 3.4rem);
+    font-weight: 900; line-height: 1.1;
+    background: linear-gradient(90deg, #ff6358 0%, #ff9f43 40%, #00d2be 80%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .subtitle { margin-top: 10px; color: rgba(255,255,255,0.55); font-size: 15px; }
+
+  .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 32px; }
+  .kpi {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px; padding: 24px 22px 20px;
+    position: relative; overflow: hidden;
+  }
+  .kpi::after {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--accent); border-radius: 16px 16px 0 0;
+  }
+  .kpi-label { font-size: 11px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(255,255,255,0.45); margin-bottom: 10px; }
+  .kpi-value { font-size: 2.4rem; font-weight: 900; color: #fff; line-height: 1; }
+  .kpi-sub { font-size: 12px; color: rgba(255,255,255,0.35); margin-top: 6px; }
+  .kpi-icon { position: absolute; top: 20px; right: 20px; font-size: 28px; opacity: 0.25; }
+
+  .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+  @media (max-width: 680px) { .charts-grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px; padding: 24px;
+  }
+  .card.full { grid-column: 1 / -1; }
+  .card-title { font-size: 13px; font-weight: 700; letter-spacing: 0.5px; color: rgba(255,255,255,0.7); margin-bottom: 18px; text-transform: uppercase; }
+
+  .chart-wrap { position: relative; height: 300px; }
+
+  .hotel-list { display: flex; flex-direction: column; gap: 14px; }
+  .hotel-row { display: flex; flex-direction: column; gap: 5px; }
+  .hotel-meta { display: flex; justify-content: space-between; align-items: baseline; }
+  .hotel-name { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.85); }
+  .hotel-steps { font-size: 12px; color: rgba(255,255,255,0.45); }
+  .bar-track { background: rgba(255,255,255,0.08); border-radius: 6px; height: 8px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 6px; }
+
+  .footer { text-align: center; font-size: 12px; color: rgba(255,255,255,0.25); margin-top: 20px; }
+
+  /* ── toggle ── */
+  .toggle-bar {
+    display: flex; justify-content: center; align-items: center;
+    gap: 6px; margin-bottom: 28px;
+  }
+  .toggle-btn {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.5);
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 13px; font-weight: 600;
+    padding: 8px 22px; border-radius: 999px;
+    cursor: pointer; transition: all 0.18s;
+  }
+  .toggle-btn.active {
+    background: linear-gradient(135deg, #ff6358, #ff9f43);
+    border-color: transparent;
+    color: #fff;
+  }
+  .toggle-btn:hover:not(.active) {
+    background: rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.8);
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <div class="badge">Tableau Conference 2026</div>
+    <h1>DataFam on the Move</h1>
+    <p class="subtitle">TC26 Step Tracker Results &nbsp;|&nbsp; San Diego, May 3&ndash;8, 2026<br>Measuring every step, mile, and hotel-to-convention-center trek from TC26</p>
+  </div>
+
+  <!-- TOGGLE -->
+  <div class="toggle-bar">
+    <button class="toggle-btn active" id="btnSteps" onclick="setMode('steps')">Steps</button>
+    <button class="toggle-btn" id="btnMiles" onclick="setMode('miles')">Miles</button>
+  </div>
+
+  <!-- KPI TILES -->
+  <div class="kpi-row">
+    <div class="kpi" style="--accent: linear-gradient(90deg,#00d2be,#00a8cc)">
+      <div class="kpi-icon">📅</div>
+      <div class="kpi-label">Busiest Day</div>
+      <div class="kpi-value">Wed May 6</div>
+      <div class="kpi-sub" id="kpi2sub">2.09M total steps &mdash; peak conference day</div>
+    </div>
+    <div class="kpi" style="--accent: linear-gradient(90deg,#ff6358,#ff9f43)">
+      <div class="kpi-icon">👟</div>
+      <div class="kpi-label" id="kpi1label">Total Steps Taken</div>
+      <div class="kpi-value" id="kpi1value">9.23M</div>
+      <div class="kpi-sub" id="kpi1sub">across all 134 participants</div>
+    </div>
+    <div class="kpi" style="--accent: linear-gradient(90deg,#ffc300,#ff9f43)">
+      <div class="kpi-icon">📍</div>
+      <div class="kpi-label" id="kpi3label">Avg Steps / Day</div>
+      <div class="kpi-value" id="kpi3value">13,543</div>
+      <div class="kpi-sub">avg across all days &amp; participants</div>
+    </div>
+    <div class="kpi" style="--accent: linear-gradient(90deg,#c471ed,#f64f59)">
+      <div class="kpi-icon">🏆</div>
+      <div class="kpi-label" id="kpi4label">Top Single Day</div>
+      <div class="kpi-value" id="kpi4value">29,039</div>
+      <div class="kpi-sub" id="kpi4sub">steps on Thursday, May 7 &mdash; Legend status</div>
+    </div>
+  </div>
+
+  <!-- Daily Steps Bar Chart: full width -->
+  <div class="card full" style="margin-bottom:20px;">
+    <div class="card-title" id="barTitle">Total Steps by Day</div>
+    <div class="chart-wrap">
+      <canvas id="dailyChart"></canvas>
+    </div>
+  </div>
+
+  <!-- MAP: full-width -->
+  <div class="card full" style="margin-bottom:20px; padding: 24px 24px 16px; position:relative;">
+    <div class="card-title">Hotel &rarr; San Diego Convention Center Walk Routes</div>
+    <div id="stripMap" style="width:100%;"></div>
+    <div id="mapTooltip" style="
+      display:none; position:fixed; pointer-events:none; z-index:999;
+      background:rgba(13,13,26,0.92); border:1px solid rgba(255,255,255,0.15);
+      border-radius:8px; padding:8px 13px; font-family:Inter,system-ui,sans-serif;
+      font-size:12px; color:rgba(255,255,255,0.9); white-space:nowrap;
+      box-shadow:0 4px 20px rgba(0,0,0,0.5);
+    "></div>
+  </div>
+
+  <!-- Hotel breakdown + device breakdown -->
+  <div class="charts-grid">
+
+    <div class="card">
+      <div class="card-title">Top Hotels by Participant Count</div>
+      <div class="hotel-list" id="hotelList"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Tracking Device Used</div>
+      <div class="chart-wrap">
+        <canvas id="deviceChart"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Daily range chart -->
+  <div class="card full">
+    <div class="card-title" id="rangeTitle">Daily Steps Range &mdash; Min / Avg / Max per Participant</div>
+    <div id="rangeChart" style="width:100%; padding: 8px 0 4px;"></div>
+  </div>
+
+  <div class="footer">Collected by Brittany Rosenau &bull; <a href="https://github.com/brrosenau/tcsteptracker/blob/main/TC26%20Step%20Counts.csv" target="_blank" style="color:rgba(255,255,255,0.4);text-decoration:underline;">TC26 Step Counts</a> &bull; Tableau Conference 2026 &bull; San Diego, CA</div>
+</div>
+
+<script>
+const coral  = '#ff6358';
+const amber  = '#ff9f43';
+const teal   = '#00d2be';
+const sky    = '#00a8cc';
+const gold   = '#ffc300';
+const purple = '#c471ed';
+
+Chart.defaults.color = 'rgba(255,255,255,0.45)';
+Chart.defaults.borderColor = 'rgba(255,255,255,0.08)';
+Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+
+// ── datasets
+const DAYS = ['Sun May 3', 'Mon May 4', 'Tue May 5', 'Wed May 6', 'Thu May 7', 'Fri May 8'];
+const BAR_COLORS = [
+  'rgba(0,210,190,0.55)', 'rgba(0,168,204,0.65)', 'rgba(0,168,204,0.75)',
+  'rgba(255,99,88,0.9)',  'rgba(255,159,67,0.75)', 'rgba(0,210,190,0.5)'
+];
+
+const DATA = {
+  steps: {
+    totals:  [1007593, 1665042, 1792615, 2087389, 1703677, 973722],
+    // miles reporters' distances converted at 2000 steps/mile for display parity — range uses actual recorded distances
+    range: [
+      { label: 'Sun 5/3',  min: 0,    avg: 10388, max: 21930 },
+      { label: 'Mon 5/4',  min: 0,    avg: 13008, max: 28198 },
+      { label: 'Tue 5/5',  min: 446,  avg: 13378, max: 28028 },
+      { label: 'Wed 5/6',  min: 4142, avg: 15578, max: 26563 },
+      { label: 'Thu 5/7',  min: 500,  avg: 12907, max: 29039 },
+      { label: 'Fri 5/8',  min: 0,    avg: 9641,  max: 27935 },
+    ],
+    kpi1label: 'Total Steps Taken', kpi1value: '9.23M', kpi1sub: 'across all 134 participants',
+    kpi2sub: '2.09M total steps \u2014 peak conference day',
+    kpi3label: 'Avg Steps / Day',   kpi3value: '13,543',
+    kpi4label: 'Top Single Day',    kpi4value: '29,039', kpi4sub: 'steps on Thursday, May 7 \u2014 Legend status',
+    barTitle: 'Total Steps by Day',
+    rangeTitle: 'Daily Steps Range \u2014 Min / Avg / Max per Participant',
+    yFormat: v => (v / 1000).toFixed(0) + 'K',
+    tipFormat: v => (v / 1000).toFixed(0) + 'K steps',
+    rangeMax: 30000, rangeTicks: [0,5000,10000,15000,20000,25000,30000],
+    rangeTickFmt: t => t >= 1000 ? (t/1000)+'K' : t,
+    rangeLabel: 'Individual Participant Steps per Day',
+    rangeAvgFmt: v => (v/1000).toFixed(1)+'K',
+    rangeMinFmt: v => (v/1000).toFixed(1)+'K',
+    rangeMaxFmt: v => (v/1000).toFixed(1)+'K',
+  },
+  miles: {
+    // miles reporters: sun 296, mon 468, tue 495, wed 567, thu 470, fri 237
+    // km reporters converted to miles (/1.609): sun 115.5, mon 187.7, tue 195.7, wed 233.3, thu 200.9, fri 136.4
+    // combined totals:
+    totals: [411.5, 656.1, 690.3, 800.0, 671.0, 373.9],
+    range: [
+      { label: 'Sun 5/3',  min: 0,    avg: 4.85, max: 11.5  },
+      { label: 'Mon 5/4',  min: 0,    avg: 5.78, max: 13.1  },
+      { label: 'Tue 5/5',  min: 2.6,  avg: 5.82, max: 9.27  },
+      { label: 'Wed 5/6',  min: 3.38, avg: 6.67, max: 12.95 },
+      { label: 'Thu 5/7',  min: 0.25, avg: 5.60, max: 14.55 },
+      { label: 'Fri 5/8',  min: 0,    avg: 3.71, max: 11.2  },
+    ],
+    kpi1label: 'Total Miles Walked', kpi1value: '3,603', kpi1sub: 'combined miles across all participants',
+    kpi2sub: '800 miles \u2014 peak conference day',
+    kpi3label: 'Avg Miles / Day',    kpi3value: '5.74',
+    kpi4label: 'Top Single Day',     kpi4value: '14.55 mi', kpi4sub: 'miles on Thursday, May 7 \u2014 Legend status',
+    barTitle: 'Total Miles by Day (miles reporters; km converted)',
+    rangeTitle: 'Daily Miles Range \u2014 Min / Avg / Max per Participant (miles reporters)',
+    yFormat: v => v.toFixed(0),
+    tipFormat: v => v.toFixed(1) + ' mi',
+    rangeMax: 15, rangeTicks: [0,3,6,9,12,15],
+    rangeTickFmt: t => t + ' mi',
+    rangeLabel: 'Individual Participant Miles per Day (miles reporters)',
+    rangeAvgFmt: v => v.toFixed(2)+' mi',
+    rangeMinFmt: v => v.toFixed(1)+' mi',
+    rangeMaxFmt: v => v.toFixed(1)+' mi',
+  }
+};
+
+// ── 1. Daily totals bar chart
+const dailyCtx = document.getElementById('dailyChart').getContext('2d');
+const dailyChart = new Chart(dailyCtx, {
+  type: 'bar',
+  data: {
+    labels: DAYS,
+    datasets: [{
+      label: 'Total',
+      data: DATA.steps.totals,
+      backgroundColor: BAR_COLORS,
+      borderRadius: 8,
+      borderSkipped: false,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ' ' + DATA.steps.tipFormat(ctx.raw) } }
+    },
+    scales: {
+      x: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.5)', font: { size: 12 } } },
+      y: {
+        grid: { color: 'rgba(255,255,255,0.06)' },
+        ticks: { color: 'rgba(255,255,255,0.4)', callback: v => DATA.steps.yFormat(v) },
+        beginAtZero: true
+      }
+    }
+  }
+});
+
+// ── mode switcher
+let currentMode = 'steps';
+function setMode(mode) {
+  if (mode === currentMode) return;
+  currentMode = mode;
+  const d = DATA[mode];
+
+  // toggle buttons
+  document.getElementById('btnSteps').classList.toggle('active', mode === 'steps');
+  document.getElementById('btnMiles').classList.toggle('active', mode === 'miles');
+
+  // KPI tiles
+  document.getElementById('kpi1label').textContent = d.kpi1label;
+  document.getElementById('kpi1value').textContent = d.kpi1value;
+  document.getElementById('kpi1sub').textContent   = d.kpi1sub;
+  document.getElementById('kpi2sub').textContent   = d.kpi2sub;
+  document.getElementById('kpi3label').textContent = d.kpi3label;
+  document.getElementById('kpi3value').textContent = d.kpi3value;
+  document.getElementById('kpi4label').textContent = d.kpi4label;
+  document.getElementById('kpi4value').textContent = d.kpi4value;
+  document.getElementById('kpi4sub').textContent   = d.kpi4sub;
+
+  // bar chart
+  document.getElementById('barTitle').textContent = d.barTitle;
+  dailyChart.data.datasets[0].data = d.totals;
+  dailyChart.options.plugins.tooltip.callbacks.label = ctx => ' ' + d.tipFormat(ctx.raw);
+  dailyChart.options.scales.y.ticks.callback = v => d.yFormat(v);
+  dailyChart.update();
+
+  // hotel list
+  renderHotelList(mode);
+
+  // range chart
+  document.getElementById('rangeTitle').textContent = d.rangeTitle;
+  buildRangeChart(d);
+}
+
+// ── 1b. San Diego map
+(function buildMap() {
+  // Bounding box: San Diego Gaslamp / Bayfront / Little Italy area
+  // Convention center: 111 W Harbor Dr  32.7067, -117.1627
+  const LON_MIN = -117.178, LON_MAX = -117.148;
+  const LAT_MIN =  32.700,  LAT_MAX =  32.730;
+
+  const container = document.getElementById('stripMap');
+  const W = container.offsetWidth || 900;
+  const H = Math.round(W * 0.5);
+  const PAD = { t: 24, r: 24, b: 24, l: 24 };
+
+  const toSVG = (lon, lat) => ({
+    x: PAD.l + (lon - LON_MIN) / (LON_MAX - LON_MIN) * (W - PAD.l - PAD.r),
+    y: PAD.t + (1 - (lat - LAT_MIN) / (LAT_MAX - LAT_MIN)) * (H - PAD.t - PAD.b)
+  });
+
+  // San Diego Convention Center — confirmed coords
+  const venue = { name: 'SD Convention Center', lon: -117.1627, lat: 32.7067 };
+  const vp = toSVG(venue.lon, venue.lat);
+
+  // Hotels with real approximate coordinates + consolidated participant counts + steps/miles
+  const hotels = [
+    { name: 'Hilton Bayfront',       lon: -117.1662, lat: 32.7098, count: 21, color: coral,     steps: 981334, miles: 271.6  },
+    { name: 'Omni',                  lon: -117.1570, lat: 32.7073, count: 10, color: amber,     steps: 558641, miles: 190.4  },
+    { name: 'Hard Rock',             lon: -117.1596, lat: 32.7119, count: 9,  color: teal,      steps: 372782, miles: 43.42  },
+    { name: 'Manchester Grand Hyatt',lon: -117.1693, lat: 32.7148, count: 8,  color: gold,      steps: 368997, miles: 132.27 },
+    { name: 'Westin Gaslamp',        lon: -117.1612, lat: 32.7148, count: 2,  color: sky,       steps: 0,      miles: 0      },
+    { name: 'Pendry',                lon: -117.1584, lat: 32.7132, count: 2,  color: purple,    steps: 0,      miles: 0      },
+    { name: 'Marriott Marquis',      lon: -117.1649, lat: 32.7076, count: 2,  color: '#f07bde', steps: 0,      miles: 0      },
+    { name: 'Comfort Inn Gaslamp',   lon: -117.1621, lat: 32.7168, count: 3,  color: '#e8c547', steps: 222561, miles: 104.91 },
+    { name: 'Residence Inn',         lon: -117.1638, lat: 32.7055, count: 4,  color: '#ff6f61', steps: 0,      miles: 0      },
+    { name: 'Hilton Gaslamp',        lon: -117.1593, lat: 32.7156, count: 3,  color: '#00e5cc', steps: 0,      miles: 0      },
+  ];
+
+  const maxCount = Math.max(...hotels.map(h => h.count));
+
+  function curvePath(from, to) {
+    const mx = (from.x + to.x) / 2;
+    const my = (from.y + to.y) / 2;
+    const dx = to.y - from.y;
+    const dy = from.x - to.x;
+    const len = Math.sqrt(dx*dx + dy*dy) || 1;
+    const bow = 0.20;
+    const scale = (Math.abs(to.x - from.x) + Math.abs(to.y - from.y)) * bow;
+    const cx = mx + dx / len * scale;
+    const cy2 = my + dy / len * scale;
+    return `M ${from.x} ${from.y} Q ${cx} ${cy2} ${to.x} ${to.y}`;
+  }
+
+  function strokeW(count) { return 1.5 + (count / maxCount) * 7; }
+
+  let defs = `<defs>`;
+  hotels.forEach((h, i) => {
+    const hp = toSVG(h.lon, h.lat);
+    defs += `<linearGradient id="pg${i}" x1="${hp.x}" y1="${hp.y}" x2="${vp.x}" y2="${vp.y}" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="${h.color}" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#ff6358" stop-opacity="0.6"/>
+    </linearGradient>`;
+  });
+  defs += `
+    <filter id="mapGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="dotGlow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>`;
+
+  // Street grid — rough Harbor Drive and 5th Ave approximations
+  const harborPts = [
+    toSVG(-117.178, 32.703),
+    toSVG(-117.172, 32.705),
+    toSVG(-117.163, 32.707),
+    toSVG(-117.155, 32.708),
+    toSVG(-117.150, 32.709),
+  ];
+  const fifthAvePts = [
+    toSVG(-117.159, 32.700),
+    toSVG(-117.159, 32.710),
+    toSVG(-117.160, 32.720),
+    toSVG(-117.161, 32.730),
+  ];
+  const marketStPts = [
+    toSVG(-117.178, 32.716),
+    toSVG(-117.164, 32.716),
+    toSVG(-117.150, 32.715),
+  ];
+
+  function polyline(pts, opacity, width, dash) {
+    let d = `M ${pts[0].x} ${pts[0].y}`;
+    for (let i = 1; i < pts.length; i++) {
+      const pp = pts[i-1], p = pts[i];
+      d += ` Q ${(pp.x+p.x)/2} ${(pp.y+p.y)/2} ${p.x} ${p.y}`;
+    }
+    return `<path d="${d}" fill="none" stroke="rgba(255,255,255,${opacity})" stroke-width="${width}" stroke-linecap="round"${dash ? ` stroke-dasharray="${dash}"` : ''}/>`;
+  }
+
+  let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;border-radius:12px;" xmlns="http://www.w3.org/2000/svg">
+  ${defs}
+  <rect width="${W}" height="${H}" fill="#0f172a" rx="12"/>`;
+
+  // Grid
+  for (let gx = PAD.l; gx < W - PAD.r; gx += 26)
+    svg += `<line x1="${gx}" y1="${PAD.t}" x2="${gx}" y2="${H-PAD.b}" stroke="rgba(255,255,255,0.025)" stroke-width="1"/>`;
+  for (let gy = PAD.t; gy < H - PAD.b; gy += 26)
+    svg += `<line x1="${PAD.l}" y1="${gy}" x2="${W-PAD.r}" y2="${gy}" stroke="rgba(255,255,255,0.025)" stroke-width="1"/>`;
+
+  // Bay (south/right side) — rough fill
+  const bayPts = [
+    toSVG(-117.178, 32.700), toSVG(-117.165, 32.700),
+    toSVG(-117.155, 32.700), toSVG(-117.150, 32.701),
+    toSVG(-117.150, 32.704), toSVG(-117.155, 32.705),
+    toSVG(-117.163, 32.705), toSVG(-117.172, 32.703),
+    toSVG(-117.178, 32.702),
+  ];
+  let bayPath = `M ${bayPts[0].x} ${H} L ${bayPts[0].x} ${bayPts[0].y}`;
+  for (let i = 1; i < bayPts.length; i++) bayPath += ` L ${bayPts[i].x} ${bayPts[i].y}`;
+  bayPath += ` L ${bayPts[bayPts.length-1].x} ${H} Z`;
+  svg += `<path d="${bayPath}" fill="rgba(0,168,204,0.08)"/>`;
+  svg += `<text x="${toSVG(-117.157, 32.701).x}" y="${toSVG(-117.157, 32.702).y + 6}" font-size="9" fill="rgba(0,168,204,0.35)" font-family="Inter,system-ui,sans-serif">SAN DIEGO BAY</text>`;
+
+  // Streets
+  svg += polyline(harborPts, 0.12, 14);
+  svg += polyline(harborPts, 0.25, 4, '6 4');
+  const hMid = toSVG(-117.164, 32.706);
+  svg += `<text x="${hMid.x}" y="${hMid.y + 3}" font-size="8.5" fill="rgba(255,255,255,0.3)" font-family="Inter,sans-serif">HARBOR DR</text>`;
+
+  svg += polyline(fifthAvePts, 0.08, 10);
+  svg += polyline(fifthAvePts, 0.18, 2, '5 4');
+  const fMid = toSVG(-117.159, 32.715);
+  svg += `<text x="${fMid.x + 4}" y="${fMid.y}" font-size="8.5" fill="rgba(255,255,255,0.25)" font-family="Inter,sans-serif" transform="rotate(-88,${fMid.x+4},${fMid.y})">5TH AVE</text>`;
+
+  svg += polyline(marketStPts, 0.07, 8);
+  svg += polyline(marketStPts, 0.15, 2, '5 4');
+  const mMid = toSVG(-117.164, 32.716);
+  svg += `<text x="${mMid.x}" y="${mMid.y - 4}" font-size="8.5" fill="rgba(255,255,255,0.22)" font-family="Inter,sans-serif">MARKET ST</text>`;
+
+  // Path shadows
+  hotels.forEach((h, i) => {
+    const hp = toSVG(h.lon, h.lat);
+    const sw = strokeW(h.count);
+    svg += `<path d="${curvePath(hp, vp)}" fill="none" stroke="rgba(0,0,0,0.5)" stroke-width="${sw+3}" stroke-linecap="round"/>`;
+  });
+  // Paths colored
+  hotels.forEach((h, i) => {
+    const hp = toSVG(h.lon, h.lat);
+    const sw = strokeW(h.count);
+    svg += `<path d="${curvePath(hp, vp)}" fill="none" stroke="url(#pg${i})" stroke-width="${sw}" stroke-linecap="round" opacity="0.9"/>`;
+  });
+
+  // Hotel dots + labels
+  hotels.forEach((h, i) => {
+    const p = toSVG(h.lon, h.lat);
+    const r = 4 + (h.count / maxCount) * 5;
+    svg += `<circle cx="${p.x}" cy="${p.y}" r="${r+3}" fill="${h.color}" opacity="0.18" filter="url(#dotGlow)"/>`;
+    svg += `<circle cx="${p.x}" cy="${p.y}" r="${r}" fill="${h.color}"/>`;
+    svg += `<circle cx="${p.x}" cy="${p.y}" r="${r*0.4}" fill="rgba(255,255,255,0.75)"/>`;
+    const lx = p.x + (p.x > vp.x ? 9 : -9);
+    const anchor = p.x > vp.x ? 'start' : 'end';
+    const ly = p.y - r - 5;
+    svg += `<text x="${lx}" y="${ly}" text-anchor="${anchor}" font-size="10" font-weight="700" fill="${h.color}" font-family="Inter,system-ui,sans-serif" filter="url(#mapGlow)">${h.name}</text>`;
+    svg += `<text x="${lx}" y="${ly+12}" text-anchor="${anchor}" font-size="9" fill="rgba(255,255,255,0.4)" font-family="Inter,system-ui,sans-serif">${h.count} participants</text>`;
+    // transparent hit target for tooltip
+    const hitR = Math.max(r + 8, 14);
+    svg += `<circle class="hotel-hit" cx="${p.x}" cy="${p.y}" r="${hitR}" fill="transparent" style="cursor:pointer"
+      data-name="${h.name}" data-count="${h.count}" data-steps="${h.steps}" data-miles="${h.miles}" data-color="${h.color}"/>`;
+  });
+
+  // Convention center star
+  function starPath(cx, cy, r, ir, pts) {
+    let d = '';
+    for (let k = 0; k < pts*2; k++) {
+      const angle = k * Math.PI / pts - Math.PI / 2;
+      const rad = k%2===0 ? r : ir;
+      d += (k===0?'M':'L') + ` ${cx+Math.cos(angle)*rad} ${cy+Math.sin(angle)*rad}`;
+    }
+    return d + ' Z';
+  }
+  const SR = 12;
+  svg += `<circle cx="${vp.x}" cy="${vp.y}" r="22" fill="#ff6358" opacity="0.15" filter="url(#dotGlow)"/>`;
+  svg += `<circle cx="${vp.x}" cy="${vp.y}" r="14" fill="#ff6358" opacity="0.25"/>`;
+  svg += `<path d="${starPath(vp.x,vp.y,SR,SR*0.45,5)}" fill="#ff6358" filter="url(#dotGlow)"/>`;
+  svg += `<path d="${starPath(vp.x,vp.y,SR,SR*0.45,5)}" fill="#fff" opacity="0.85"/>`;
+  svg += `<text x="${vp.x}" y="${vp.y+SR+14}" text-anchor="middle" font-size="11" font-weight="900" fill="#ff6358" font-family="Inter,system-ui,sans-serif">Convention Center</text>`;
+  svg += `<text x="${vp.x}" y="${vp.y+SR+26}" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.5)" font-family="Inter,system-ui,sans-serif">Conference HQ</text>`;
+
+  svg += `</svg>`;
+  container.innerHTML = svg;
+
+  // Wire tooltip events
+  const tip = document.getElementById('mapTooltip');
+  container.querySelectorAll('.hotel-hit').forEach(el => {
+    el.addEventListener('mousemove', e => {
+      const name  = el.dataset.name;
+      const count = el.dataset.count;
+      const steps = parseInt(el.dataset.steps, 10);
+      const miles = parseFloat(el.dataset.miles);
+      const color = el.dataset.color;
+      const mode  = typeof currentMode !== 'undefined' ? currentMode : 'steps';
+      let metricLine = '';
+      if (mode === 'miles' && miles > 0) {
+        metricLine = `<div style="color:rgba(255,255,255,0.6);margin-top:2px">${miles.toFixed(1)} mi total</div>`;
+      } else if (steps > 0) {
+        metricLine = `<div style="color:rgba(255,255,255,0.6);margin-top:2px">${(steps/1000).toFixed(0)}K steps total</div>`;
+      }
+      tip.innerHTML =
+        `<div style="font-weight:700;color:${color}">${name}</div>` +
+        `<div style="margin-top:3px">${count} participant${count==1?'':'s'}</div>` +
+        metricLine;
+      tip.style.display = 'block';
+      tip.style.left = (e.clientX + 14) + 'px';
+      tip.style.top  = (e.clientY - 10) + 'px';
+    });
+    el.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+  });
+})();
+
+// ── 2. Hotel breakdown (steps or miles, toggle-aware)
+const HOTELS = [
+  { name: 'Hilton Bayfront',        color: coral,
+    steps: 981334, miles: 271.6 },
+  { name: 'Omni',                   color: amber,
+    steps: 558641, miles: 190.4 },
+  { name: 'Hilton SD Bayfront',     color: teal,
+    steps: 414924, miles: 90.97 },
+  { name: 'Hard Rock',              color: gold,
+    steps: 372782, miles: 43.42 },
+  { name: 'Manchester Grand Hyatt', color: sky,
+    steps: 368997, miles: 132.27 },
+  { name: 'Comfort Inn Gaslamp',    color: purple,
+    steps: 222561, miles: 104.91 },
+  { name: 'Airbnb',                 color: '#f07bde',
+    steps: 209915, miles: 54.75 },
+];
+
+function renderHotelList(mode) {
+  const key = mode === 'miles' ? 'miles' : 'steps';
+  const fmt = mode === 'miles'
+    ? v => v.toFixed(1) + ' mi'
+    : v => (v / 1000).toFixed(0) + 'K steps';
+  const title = mode === 'miles' ? 'Top Hotels by Miles (miles reporters)' : 'Top Hotels by Total Steps';
+  document.querySelector('#hotelList').closest('.card').querySelector('.card-title').textContent = title;
+  const maxV = Math.max(...HOTELS.map(h => h[key]));
+  const list = document.getElementById('hotelList');
+  list.innerHTML = '';
+  HOTELS.forEach(h => {
+    const val = h[key];
+    const pct = (val / maxV * 100).toFixed(1);
+    const row = document.createElement('div');
+    row.className = 'hotel-row';
+    row.innerHTML = `
+      <div class="hotel-meta">
+        <span class="hotel-name">${h.name}</span>
+        <span class="hotel-steps">${fmt(val)}</span>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:${pct}%; background:${h.color}"></div>
+      </div>`;
+    list.appendChild(row);
+  });
+}
+renderHotelList('steps');
+
+// ── 3. Device donut chart with count labels on slices
+const DEVICE_LABELS = ['Apple Watch', 'iPhone', 'Garmin Watch', 'FitBit', 'Android Phone', 'Other'];
+const DEVICE_COUNTS = [53, 32, 14, 10, 10, 7];
+const DEVICE_TOTAL  = DEVICE_COUNTS.reduce((a, b) => a + b, 0);
+const DEVICE_COLORS = [coral, amber, teal, gold, sky, purple];
+
+// plugin to draw count labels on each slice
+const donutLabelPlugin = {
+  id: 'donutLabels',
+  afterDatasetDraw(chart) {
+    const { ctx, data } = chart;
+    const meta = chart.getDatasetMeta(0);
+    ctx.save();
+    meta.data.forEach((arc, i) => {
+      const count = data.datasets[0].data[i];
+      const angle  = (arc.startAngle + arc.endAngle) / 2;
+      const radius = (arc.innerRadius + arc.outerRadius) / 2;
+      const x = arc.x + Math.cos(angle) * radius;
+      const y = arc.y + Math.sin(angle) * radius;
+      // only label slices large enough to fit text
+      if ((arc.endAngle - arc.startAngle) < 0.25) return;
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 12px Inter, system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(count, x, y);
+    });
+    ctx.restore();
+  }
+};
+
+const deviceCtx = document.getElementById('deviceChart').getContext('2d');
+new Chart(deviceCtx, {
+  type: 'doughnut',
+  plugins: [donutLabelPlugin],
+  data: {
+    labels: DEVICE_LABELS,
+    datasets: [{
+      data: DEVICE_COUNTS,
+      backgroundColor: DEVICE_COLORS,
+      borderWidth: 2,
+      borderColor: '#0d0d1a',
+      hoverOffset: 6
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    cutout: '55%',
+    plugins: {
+      legend: {
+        position: 'right',
+        labels: {
+          color: 'rgba(255,255,255,0.6)',
+          font: { size: 11 },
+          boxWidth: 12,
+          padding: 10,
+          generateLabels(chart) {
+            return chart.data.labels.map((label, i) => ({
+              text: label,
+              fillStyle: DEVICE_COLORS[i],
+              strokeStyle: '#0d0d1a',
+              lineWidth: 2,
+              hidden: false,
+              index: i,
+              fontColor: 'rgba(255,255,255,0.6)'
+            }));
+          }
+        }
+      },
+      tooltip: {
+        callbacks: {
+          label: ctx => ' ' + ctx.raw + ' participants (' + Math.round(ctx.raw / DEVICE_TOTAL * 100) + '%)'
+        }
+      }
+    }
+  }
+});
+
+// ── 4. Daily range chart (re-callable)
+function buildRangeChart(d) {
+  const days = d.range;
+  const container = document.getElementById('rangeChart');
+  const PAD_L = 70, PAD_R = 56, PAD_TOP = 36, PAD_BOT = 48;
+  const ROW_H = 64;
+  const W = container.offsetWidth || 900;
+  const H = PAD_TOP + days.length * ROW_H + PAD_BOT;
+  const globalMax = d.rangeMax;
+  const toX = v => PAD_L + (v / globalMax) * (W - PAD_L - PAD_R);
+  const gradId = 'stepGrad';
+
+  let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block; overflow:visible" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#00d2be"/>
+      <stop offset="35%"  stop-color="#00a8cc"/>
+      <stop offset="60%"  stop-color="#ff9f43"/>
+      <stop offset="85%"  stop-color="#ff6358"/>
+      <stop offset="100%" stop-color="#c471ed"/>
+    </linearGradient>
+    <filter id="glow2">
+      <feGaussianBlur stdDeviation="2.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>`;
+
+  d.rangeTicks.forEach(t => {
+    const x = toX(t);
+    svg += `<line x1="${x}" y1="${PAD_TOP - 10}" x2="${x}" y2="${H - PAD_BOT + 6}" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>`;
+    svg += `<text x="${x}" y="${H - PAD_BOT + 20}" text-anchor="middle" font-size="11" fill="rgba(255,255,255,0.35)" font-family="Inter,system-ui,sans-serif">${d.rangeTickFmt(t)}</text>`;
+  });
+  svg += `<text x="${W/2}" y="${H - 4}" text-anchor="middle" font-size="11" fill="rgba(255,255,255,0.3)" font-family="Inter,system-ui,sans-serif">${d.rangeLabel}</text>`;
+
+  const avgPoints = days.map((day, i) => ({ x: toX(day.avg), y: PAD_TOP + i * ROW_H + ROW_H / 2 }));
+  if (avgPoints.length > 1) {
+    let path = `M ${avgPoints[0].x} ${avgPoints[0].y}`;
+    for (let i = 1; i < avgPoints.length; i++) {
+      const cp1x = avgPoints[i-1].x, cp1y = (avgPoints[i-1].y + avgPoints[i].y) / 2;
+      const cp2x = avgPoints[i].x,   cp2y = (avgPoints[i-1].y + avgPoints[i].y) / 2;
+      path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${avgPoints[i].x} ${avgPoints[i].y}`;
+    }
+    svg += `<path d="${path}" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="1.5" stroke-dasharray="4 3"/>`;
+  }
+
+  days.forEach((day, i) => {
+    const cy = PAD_TOP + i * ROW_H + ROW_H / 2;
+    const barH = 20, r = barH / 2;
+    const xMin = toX(day.min), xMax = toX(day.max), xAvg = toX(day.avg);
+    svg += `<text x="${PAD_L - 8}" y="${cy + 4}" text-anchor="end" font-size="12" font-weight="700" fill="rgba(255,255,255,0.75)" font-family="Inter,system-ui,sans-serif">${day.label}</text>`;
+    svg += `<rect x="${toX(0)}" y="${cy - r}" width="${toX(globalMax) - toX(0)}" height="${barH}" rx="${r}" fill="rgba(255,255,255,0.05)"/>`;
+    svg += `<rect x="${xMin}" y="${cy - r}" width="${Math.max(xMax - xMin, 2)}" height="${barH}" rx="${r}" fill="url(#${gradId})" opacity="0.85"/>`;
+    if (day.min > 0) svg += `<text x="${xMin - 6}" y="${cy + 4}" text-anchor="end" font-size="10" fill="rgba(255,255,255,0.45)" font-family="Inter,system-ui,sans-serif">${d.rangeMinFmt(day.min)}</text>`;
+    svg += `<text x="${xMax + 6}" y="${cy + 4}" text-anchor="start" font-size="10" fill="rgba(255,255,255,0.45)" font-family="Inter,system-ui,sans-serif">${d.rangeMaxFmt(day.max)}</text>`;
+    svg += `<circle cx="${xAvg}" cy="${cy}" r="6" fill="white" filter="url(#glow2)"/>`;
+    svg += `<circle cx="${xAvg}" cy="${cy}" r="3.5" fill="#0d0d1a"/>`;
+    svg += `<text x="${xAvg}" y="${cy - r - 6}" text-anchor="middle" font-size="11" font-weight="700" fill="rgba(255,255,255,0.8)" font-family="Inter,system-ui,sans-serif">avg ${d.rangeAvgFmt(day.avg)}</text>`;
+  });
+
+  const lx = PAD_L, ly = PAD_TOP - 20;
+  svg += `<circle cx="${lx}" cy="${ly}" r="5" fill="white" filter="url(#glow2)"/>`;
+  svg += `<circle cx="${lx}" cy="${ly}" r="3" fill="#0d0d1a"/>`;
+  svg += `<text x="${lx + 10}" y="${ly + 4}" font-size="11" fill="rgba(255,255,255,0.5)" font-family="Inter,system-ui,sans-serif">avg</text>`;
+  svg += `<rect x="${lx + 50}" y="${ly - 6}" width="32" height="12" rx="6" fill="url(#${gradId})" opacity="0.85"/>`;
+  svg += `<text x="${lx + 90}" y="${ly + 4}" font-size="11" fill="rgba(255,255,255,0.5)" font-family="Inter,system-ui,sans-serif">min – max range</text>`;
+  svg += `</svg>`;
+  container.innerHTML = svg;
+}
+buildRangeChart(DATA.steps);
+</script>
+</body>
+</html>
